@@ -1,0 +1,10 @@
+version: 1
+default: local
+profiles:
+  local:
+    target: local
+    environment: development
+    python: .venv/bin/python
+    env_file: .env
+    secrets: [GOOGLE_API_KEY]
+    inherit: [GOOGLE_API_KEY]

@@ -1,0 +1,25 @@
+{
+  "version": 1,
+  "suite_sha256": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+  "evaluator_sha256": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+  "subject": {
+    "revision": "synthetic-baseline",
+    "artifact_sha256": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
+  },
+  "results": [
+    {
+      "case_id": "inventory",
+      "repetition": 1,
+      "passed": true,
+      "latency_ms": 100,
+      "cost_usd": 0.02
+    },
+    {
+      "case_id": "denied-action",
+      "repetition": 1,
+      "passed": true,
+      "latency_ms": 200,
+      "cost_usd": 0.01
+    }
+  ]
+}

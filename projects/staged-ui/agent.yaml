@@ -1,0 +1,18 @@
+version: 1
+agent:
+  name: staged_ui
+  provider: gemini
+  model: gemini-3.6-flash
+  instruction: {template: instruction.md}
+skills:
+  dir: skills
+  include: [explain]
+tools:
+  catalog: tools.catalog.json
+presentation:
+  version: 1
+  packs: [adkl/common@1]
+features:
+  history_slicing: {recent_turns: 3}
+  pipeline: [history_slicing, staged_widgets]
+eject: {target: generated/agent.py}

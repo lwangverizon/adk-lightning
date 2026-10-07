@@ -1,0 +1,25 @@
+# Select this as the CI configuration path on the public/community project only
+# AFTER provisioning isolated container runners and reviewing project variables.
+# Keep private origin's opt-in policy unchanged. See docs/community-release.md.
+include:
+  - local: /.gitlab-ci.yml
+
+workflow:
+  rules:
+    # Never execute a fork's MR code with the parent project's token/resources.
+    # Forks can run their own branch pipeline in their own trust domain.
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $CI_MERGE_REQUEST_SOURCE_PROJECT_ID != $CI_PROJECT_ID'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS'
+      when: never
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH'
+    - when: never
+
+# Verification only. Public publication requires a separately reviewed release
+# trust domain; never inherit the private origin's automatic tag publisher.
+sdk-publish:
+  rules:
+    - when: never

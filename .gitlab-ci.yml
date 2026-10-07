@@ -1,0 +1,220 @@
+# Operational setup and future CD: docs/ci-cd.md.
+# Ordinary pushes, merge requests and schedules do not create pipelines.
+# Run pipeline in GitLab on main for explicit verification. Protected release
+# tags still run every gate before publication; never bypass those jobs.
+workflow:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "web" && $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH'
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+    - when: never
+
+stages: [validate, test, build, package, publish]
+
+default:
+  interruptible: true
+  retry:
+    max: 1
+    when: [runner_system_failure, stuck_or_timeout_failure]
+
+variables:
+  UV_CACHE_DIR: "$CI_PROJECT_DIR/.uv-cache"
+  UV_LINK_MODE: copy
+  UV_PYTHON_DOWNLOADS: never
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+.all-pipelines:
+  timeout: 20 minutes
+  rules:
+    - when: on_success
+
+.python:
+  extends: .all-pipelines
+  # Verified Linux/amd64 manifest; use an amd64 runner for these pinned images.
+  image: ghcr.io/astral-sh/uv:0.10.10-python3.13-trixie-slim@sha256:0eee2be1fc47d7ee2af13b6feee653e8a29c043191f63c9c6d0c1453547a7131
+  cache:
+    key:
+      prefix: python313-uv01010
+      files: [uv.lock]
+    paths: [.uv-cache/]
+  after_script:
+    - uv cache prune --ci
+
+.flutter:
+  extends: .all-pipelines
+  image: ghcr.io/cirruslabs/flutter:3.44.0@sha256:0a9de3b70b5b7b921a346eb2793e363dc22280849a4fd690d9dde99ce1c2b1b8
+  variables:
+    PUB_CACHE: "$CI_PROJECT_DIR/.pub-cache"
+  cache:
+    key:
+      prefix: flutter3440
+      files: [console/pubspec.lock]
+    paths: [.pub-cache/]
+
+python-lint:
+  extends: .python
+  stage: validate
+  script:
+    - uv sync --locked --only-group ci
+    - uv run --no-sync ruff check adkl tests scripts
+    - python scripts/ci/sdk_release.py check
+    - python scripts/ci/check_docs.py
+
+secret-scan:
+  extends: .all-pipelines
+  stage: validate
+  image:
+    name: zricethezav/gitleaks:v8.24.2@sha256:58c180146f495109b851e82278c9cf43d1055b622287a4b6a464087f0c0dbf43
+    entrypoint: [""]
+  script:
+    - mkdir -p reports
+    # Checkout scan: no model credentials, no customer calls, no history claims.
+    - gitleaks dir --redact --no-banner --report-format json --report-path reports/secrets.json .
+  artifacts:
+    when: always
+    access: developer
+    expire_in: 7 days
+    paths: [reports/secrets.json]
+
+components:
+  extends: .python
+  stage: test
+  script:
+    - uv sync --locked
+    - bash run_tests.sh --junit reports/components.xml
+  artifacts:
+    when: always
+    expire_in: 14 days
+    reports:
+      junit: reports/components.xml
+
+native-adk-contract:
+  extends: .python
+  stage: test
+  script:
+    - uv sync --locked --extra runtime
+    # Re-run components with ADK/LiteLLM installed, including native contracts.
+    - uv run --no-sync python -m pytest tests --ignore=tests/tools --junitxml=reports/runtime.xml -q
+  artifacts:
+    when: always
+    expire_in: 14 days
+    reports:
+      junit: reports/runtime.xml
+
+
+console:
+  extends: .flutter
+  stage: test
+  script:
+    - cd console
+    - flutter pub get --enforce-lockfile
+    - flutter analyze
+    - flutter test
+
+dependency-audit:
+  extends: .python
+  stage: test
+  script:
+    - uv sync --locked --only-group ci
+    - bash scripts/ci/audit.sh
+  artifacts:
+    when: always
+    access: developer
+    expire_in: 14 days
+    paths:
+      - reports/dependency-audit.json
+      - reports/runtime-sbom.cdx.json
+
+console-review-build:
+  extends: .flutter
+  stage: build
+  # Stage ordering deliberately waits for every required gate. No needs shortcut.
+  script:
+    - cd console
+    - flutter pub get --enforce-lockfile
+    - flutter build web --release
+    - cd ..
+    - python3 scripts/ci/artifact_manifest.py create console/build/web console/build/manifest.json
+    - python3 scripts/ci/artifact_manifest.py verify console/build/web console/build/manifest.json
+  artifacts:
+    name: "console-review-$CI_COMMIT_SHA"
+    access: developer
+    expire_in: 14 days
+    paths:
+      - console/build/web/
+      - console/build/manifest.json
+# No hosting deployment: the tag publisher distributes SDK artifacts only.
+
+static-portal-review-build:
+  extends: .flutter
+  stage: build
+  script:
+    - cd console
+    - flutter pub get --enforce-lockfile
+    - flutter build web --release --target lib/portal_main.dart --no-web-resources-cdn
+    - cd ..
+    # Fixture registry only: no host imports, credentials or fabricated snapshots.
+    - mkdir -p portal-review/web/data
+    - cp -R console/build/web/. portal-review/web/
+    - python3 -c 'import json; from pathlib import Path; p=Path("deploy/portal/registry.example.json"); d=json.loads(p.read_text()); d["schemaVersion"]=1; Path("portal-review/web/data/registry.json").write_text(json.dumps(d))'
+    - cp deploy/portal/Dockerfile deploy/portal/nginx.conf portal-review/
+    - python3 scripts/ci/artifact_manifest.py create portal-review/web portal-review/manifest.json
+    - python3 scripts/ci/artifact_manifest.py verify portal-review/web portal-review/manifest.json
+  artifacts:
+    access: developer
+    expire_in: 14 days
+    paths: [portal-review/]
+
+connected-portal-review-build:
+  extends: .flutter
+  stage: build
+  script:
+    - cd console
+    - flutter pub get --enforce-lockfile
+    - flutter build web --release --target lib/connected_main.dart --no-web-resources-cdn
+    - cd ..
+    # Assets only: no credentials, host snapshots or fabricated live evidence.
+    - mkdir -p connected-review
+    - cp -R console/build/web connected-review/web
+    - python3 scripts/ci/artifact_manifest.py create connected-review/web connected-review/manifest.json
+    - python3 scripts/ci/artifact_manifest.py verify connected-review/web connected-review/manifest.json
+  artifacts:
+    access: developer
+    expire_in: 14 days
+    paths: [connected-review/]
+
+sdk-onboarding:
+  extends: .python
+  stage: package
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git
+  script:
+    - uv sync --locked --extra runtime
+    - uv run --no-sync python scripts/build_sdk.py --console-archive --sdist
+    - uv run --no-sync python scripts/ci/onboarding_smoke.py dist/*.whl
+    - python scripts/ci/sdk_release.py prepare
+  artifacts:
+    access: developer
+    expire_in: 14 days
+    paths: [dist/release/]
+
+sdk-publish:
+  extends: .python
+  stage: publish
+  # Stage ordering waits for every gate; download only the verified artifact.
+  dependencies: [sdk-onboarding]
+  cache: []
+  after_script: []
+  before_script:
+    - apt-get update -qq && apt-get install -y --no-install-recommends git
+  interruptible: false
+  resource_group: sdk-release
+  variables:
+    GIT_DEPTH: "0"
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "push" && $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$/ && $CI_COMMIT_REF_PROTECTED == "true"'
+      when: on_success
+    - when: never
+  script:
+    - git fetch origin "$CI_DEFAULT_BRANCH"
+    - git merge-base --is-ancestor "$CI_COMMIT_SHA" FETCH_HEAD
+    - python scripts/ci/sdk_release.py publish

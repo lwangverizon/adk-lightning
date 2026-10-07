@@ -1,0 +1,102 @@
+{
+  "id": "quiz",
+  "provider": "adkl",
+  "type": "quiz",
+  "payload": {
+    "type": "quiz",
+    "question": "What is 2 + 3?",
+    "options": [
+      {
+        "label": "A",
+        "text": "4"
+      },
+      {
+        "label": "B",
+        "text": "5"
+      }
+    ]
+  },
+  "a2ui": {
+    "components": [
+      {
+        "id": "quiz-0:0",
+        "component": "Text",
+        "text": "Quick check",
+        "variant": "h3"
+      },
+      {
+        "id": "quiz-0:1",
+        "component": "Text",
+        "text": "What is 2 + 3?",
+        "variant": "body"
+      },
+      {
+        "id": "quiz-0:2",
+        "component": "Text",
+        "text": "Display preview \u2014 answer submission is unavailable.",
+        "variant": "caption"
+      },
+      {
+        "id": "quiz-0:3",
+        "component": "Text",
+        "text": "A. 4",
+        "variant": "body"
+      },
+      {
+        "id": "quiz-0:4",
+        "component": "Button",
+        "child": "quiz-0:3",
+        "action": {
+          "event": {
+            "name": "answer_quiz",
+            "context": {
+              "answer": "A"
+            }
+          }
+        }
+      },
+      {
+        "id": "quiz-0:5",
+        "component": "Text",
+        "text": "B. 5",
+        "variant": "body"
+      },
+      {
+        "id": "quiz-0:6",
+        "component": "Button",
+        "child": "quiz-0:5",
+        "action": {
+          "event": {
+            "name": "answer_quiz",
+            "context": {
+              "answer": "B"
+            }
+          }
+        }
+      },
+      {
+        "id": "quiz-0:content",
+        "component": "Column",
+        "children": [
+          "quiz-0:0",
+          "quiz-0:1",
+          "quiz-0:2",
+          "quiz-0:4",
+          "quiz-0:6"
+        ]
+      },
+      {
+        "id": "quiz-0:card",
+        "component": "Card",
+        "child": "quiz-0:content"
+      }
+    ],
+    "root": "quiz-0:card",
+    "roots": [
+      "quiz-0:card"
+    ],
+    "surfaceId": "quiz-0",
+    "widgetType": "quiz",
+    "warnings": []
+  }
+}

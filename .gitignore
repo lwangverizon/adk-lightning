@@ -1,0 +1,27 @@
+__pycache__/
+*.pyc
+console/build/
+console/.dart_tool/
+console/.idea/
+console/*.iml
+.DS_Store
+.env
+
+# uv-managed environment
+.venv/
+.uv-cache/
+.pub-cache/
+.pytest_cache/
+.ruff_cache/
+reports/
+
+# Project runtime state and local secret profiles
+.adkl/
+.env.*
+!.env.example
+
+# SDK packaging artifacts
+/build/
+/dist/
+/*.egg-info/
+/adkl/web/

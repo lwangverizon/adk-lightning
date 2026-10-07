@@ -1,0 +1,60 @@
+# Installable SDK; repository uv commands keep using the source checkout.
+[project]
+name = "adk-lightning"
+version = "0.1.0"
+description = "Shared runtime patterns and agent authoring for Google ADK"
+readme = "README.md"
+requires-python = ">=3.13"
+license = "Apache-2.0"
+license-files = ["LICENSE", "NOTICE"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.13",
+]
+
+# Deliberately stdlib + PyYAML, so CI can run without the ADK wheel or any cloud
+# credentials. This is not just the authoring CLIs: all but three adkl modules
+# import with ADK absent, and tests/test_import_layering.py fails the build if a
+# fourth appears. Keep this list at one entry.
+dependencies = [
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+# The runtime half: ADK plus the LiteLLM adapter used by adkl/gateway.py.
+# Avoid ADK's broad extensions extra (unused NLTK/LlamaIndex/Docker/etc.).
+runtime = [
+    "google-adk>=2.6.3,<3",
+    "litellm>=1.84,<2",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0.0",
+]
+ci = [
+    "ruff==0.15.6",
+    "pip-audit==2.9.0",
+]
+
+[tool.ruff]
+target-version = "py313"
+
+[tool.ruff.lint]
+# Start with syntax/undefined-name defects; expand after a focused cleanup.
+select = ["E9", "F63", "F7", "F82"]
+
+[tool.uv]
+package = false
+
+[build-system]
+requires = ["setuptools==84.0.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["adkl*"]
+
+[tool.setuptools.package-data]
+adkl = ["web/**/*", "web/*"]

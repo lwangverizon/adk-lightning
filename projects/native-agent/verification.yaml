@@ -1,0 +1,13 @@
+version: 1
+profile: local
+evaluator: evaluate_changes:evaluate
+evaluator_files:
+  - evaluate_changes.py
+subject_files:
+  - demo_agent.py
+  - skills
+suite: verification-cases.json
+timeout_seconds: 120
+contracts: [state_isolation]
+policy:
+  min_pass_rate: 1.0

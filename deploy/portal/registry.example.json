@@ -1,0 +1,6 @@
+{
+  "agents": [
+    {"id": "support", "name": "Support assistant"},
+    {"id": "research", "name": "Research assistant"}
+  ]
+}

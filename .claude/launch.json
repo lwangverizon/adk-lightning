@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "adkl-console",
+      "runtimeExecutable": "uv",
+      "runtimeArgs": [
+        "run", "python", "-m", "adkl.server",
+        "--root", "projects/native-agent",
+        "--agents", "projects",
+        "--web", "console/build/web",
+        "--port", "8787"
+      ],
+      "port": 8787
+    }
+  ]
+}

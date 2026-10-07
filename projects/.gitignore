@@ -1,0 +1,14 @@
+# Business-created projects belong to their own repositories.
+/*
+!/.gitignore
+!/README.md
+!/examples.json
+!/staged-ui/
+!/native-agent/
+**/.venv/
+**/vendor/
+**/.adkl/
+**/.env
+**/__pycache__/
+/staged-ui/uv.lock
+/native-agent/uv.lock

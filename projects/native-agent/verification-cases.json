@@ -1,0 +1,7 @@
+{
+  "repetitions": 2,
+  "cases": [
+    {"id": "card-v09", "adkl_contracts": ["state_isolation"], "input": "Show v0.9", "version": "v0.9", "required_instruction": "acknowledge thanks without a card"},
+    {"id": "card-v10", "adkl_contracts": ["state_isolation"], "input": "Show v1.0", "version": "v1.0", "required_instruction": "acknowledge thanks without a card"}
+  ]
+}

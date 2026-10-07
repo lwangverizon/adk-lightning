@@ -1,0 +1,10 @@
+version: 1
+agent:
+  name: export_fixture
+  provider: gemini
+  model: fixture
+  instruction: {template: instruction.md}
+skills: {dir: skills, include: [explain]}
+features:
+  pipeline: [skill_retrieval, history_slicing]
+eject: {target: generated/agent.py}

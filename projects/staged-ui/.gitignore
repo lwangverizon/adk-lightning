@@ -1,0 +1,6 @@
+.venv/
+.adkl/
+vendor/
+.env
+__pycache__/
+generated/

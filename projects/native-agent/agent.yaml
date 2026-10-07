@@ -1,0 +1,7 @@
+version: 1
+agent:
+  name: native_agent
+  factory: demo_agent:build
+authoring:
+  skills:
+    display: skills/display/SKILL.md

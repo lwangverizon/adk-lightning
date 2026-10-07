@@ -1,0 +1,9 @@
+version: 1
+default: local
+profiles:
+  local:
+    target: local
+    environment: development
+    python: .venv/bin/python
+    secrets: []
+    inherit: []
