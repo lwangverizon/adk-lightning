@@ -31,6 +31,7 @@ SUBJECT_RULES = frozenset({
     "WIDGET_OUTPUT_MISSING", "WIDGET_OUTPUT_ANNOTATION_STALE",
     "VERIFICATION_FAILED", "VERIFICATION_NOT_CURRENT",
     "CONTRACT_PROBE_FAILED", "CONTRACT_EVIDENCE_MISSING", "CONTRACT_EVIDENCE_REQUIRED",
+    "DOCTOR_SDK_DIFFERS_FROM_LOCK", "DESCRIPTION_TOO_LONG", "ENVIRONMENT_NOT_LOCKED",
 })
 
 
@@ -48,14 +49,18 @@ def _finding(raw, check, evidence, root, doc):
         target = root / source
         if target.resolve().is_relative_to(root):
             location = {"path": target.resolve().relative_to(root).as_posix(), "line": None}
+    line = raw.get("line")
     if location is None and rule in {"CONFIG", "SDK_UNSUPPORTED", "AUTHORING_SOURCE_DRIFT"}:
         location = {"path": "agent.yaml", "line": None}
     message = str(raw.get("message", "Check failed"))
     # Parser errors can quote source lines. Export only the rule, not the excerpt.
     if rule in {"FRONTMATTER_INVALID", "AUDIT_INPUT"}:
         message = "The check could not parse or read its input; inspect the source locally."
+    # Line numbers shift with unrelated edits; keep them out of finding identity.
     fingerprint = json.dumps([rule, raw.get("contract") or skill, location,
                               None if rule in SUBJECT_RULES else message], sort_keys=True)
+    if location and isinstance(line, int) and not isinstance(line, bool) and line > 0:
+        location = {**location, "line": line}
     return {"title": metadata["title"], "subject": metadata["subject"],
             "impact": metadata["impact"], "remediation": metadata["remediation"],
             "id": hashlib.sha256(fingerprint.encode()).hexdigest()[:24],
@@ -84,12 +89,14 @@ def compare(previous, current):
 
 
 def diagnose(root, *, inspect=False, profile=None, previous=None, include_snapshot=False,
-             require_contracts=()):
+             require_contracts=(), base_ref=None):
     """Return a JSON-compatible v1 report from saved base project files.
 
     ``include_snapshot`` adds the declaration snapshot from the same inspection
     worker to the report, for offline export. It does not enable inspection.
     ``require_contracts`` gates on current retained evidence, never executes it.
+    ``base_ref`` names a Git revision; skill variants then also compare section
+    bodies against it to find fixes applied to only some served copies.
     """
     if (not isinstance(require_contracts, (list, tuple))
             or any(not isinstance(name, str) or name not in CONTRACTS
@@ -111,6 +118,10 @@ def diagnose(root, *, inspect=False, profile=None, previous=None, include_snapsh
                   "Source identity is a development reload guard, not a complete build attestation."]}
     if require_contracts:
         report["context"]["requiredContracts"] = require_contracts
+    if base_ref is not None:
+        if not isinstance(base_ref, str) or not base_ref:
+            raise ValueError("base_ref must be a Git revision name")
+        report["context"]["baseRef"] = base_ref
     doc = {}
     scope = None
     native_inventory = None
@@ -168,10 +179,15 @@ def diagnose(root, *, inspect=False, profile=None, previous=None, include_snapsh
         except (OSError, ValueError, TypeError, KeyError, yaml.YAMLError,
                 execution.ExecutionError):
             report["limitations"].append("Source coverage unavailable; baseline resolution is disabled.")
-        check("environment", lambda: (
-            [{"rule": "ENVIRONMENT", "severity": "ERROR", "message": p}
-             for p in projects.doctor(root, profile)["problems"]],
-            "Prerequisites only; dependency compatibility and credentials were not tested."))
+        def environment():
+            from adkl import doctor_environment
+            raw = [{"rule": "ENVIRONMENT", "severity": "ERROR", "message": p}
+                   for p in projects.doctor(root, profile)["problems"]]
+            locked, note = doctor_environment.collect(root, profile)
+            return raw + locked, ("Prerequisites only; dependency compatibility and credentials "
+                                  "were not tested. " + note)
+
+        check("environment", environment)
 
         def static():
             result = audit.audit(root)
@@ -196,6 +212,26 @@ def diagnose(root, *, inspect=False, profile=None, previous=None, include_snapsh
             output_check["status"] = "not_checked"
         output_check["scopeDigest"] = (doctor_scope.digest([scope, output_summary["coverageDigest"]])
             if scope and output_summary.get("coverageDigest") else None)
+
+        def capability_calls():
+            from adkl.doctor_calls import collect, regressions
+            summary, raw = collect(root)
+            if previous is not None:
+                raw += regressions(previous.get("capabilityCalls", {}), summary)
+            report["capabilityCalls"] = summary
+            return raw, ("Retained host inference evidence and declared inventory only; "
+                         "no model executed; unknown counts are not zero.")
+
+        check("capability_calls", capability_calls, "retained_host_report")
+        call_check = report["checks"][-1]
+        call_summary = report.get("capabilityCalls", {})
+        if call_summary.get("state") == "unconfigured":
+            call_check["status"] = "not_checked"
+        # Incomplete evidence must never resolve an earlier over-budget finding.
+        complete = (call_summary.get("coverage") == "complete"
+                    and all(c["state"] == "CURRENT"
+                            for c in call_summary.get("capabilities", [])))
+        call_check["scopeDigest"] = call_summary.get("coverageDigest") if complete else None
 
         def instruction_layers():
             from adkl.doctor_instructions import collect
@@ -235,32 +271,83 @@ def diagnose(root, *, inspect=False, profile=None, previous=None, include_snapsh
 
         def skill_variants():
             from adkl.doctor_variants import collect
-            return collect(root, doc)
+            return collect(root, doc, base_ref)
 
         check("skill_variants", skill_variants)
         if report["checks"][-1]["detail"].startswith("No project skill"):
             report["checks"][-1]["status"] = "not_checked"
 
+        def skill_references():
+            from adkl.doctor_variants import collect_references
+            return collect_references(root, doc)
+
+        check("skill_references", skill_references)
+        if report["checks"][-1]["detail"].startswith("No project skill"):
+            report["checks"][-1]["status"] = "not_checked"
+
+        host_coverage = {}
+
+        def artifacts():
+            from adkl.doctor_host import collect_artifacts
+            raw, note, coverage = collect_artifacts(root)
+            host_coverage["artifacts"] = coverage
+            return raw, note
+
+        def host_code():
+            from adkl.doctor_host import collect_host_code
+            raw, note, coverage = collect_host_code(root)
+            host_coverage["host_code"] = coverage
+            return raw, note
+
+        for name, run in (("artifacts", artifacts), ("host_code", host_code)):
+            check(name, run)
+            result = report["checks"][-1]
+            if result["status"] == "error":
+                continue
+            coverage = host_coverage.get(name)
+            if coverage is None:
+                result["status"] = "not_checked"
+            result["scopeDigest"] = (doctor_scope.digest([scope, coverage])
+                                     if scope and coverage is not None else None)
+
         if inspect:
             def native():
                 nonlocal native_inventory
+                from adkl.agent_schema import startup_modules
                 from adkl.native_authoring import Workspace
+                startup = startup_modules(doc) if doc.get("agent", {}).get("factory") else []
                 worker = execution.Worker(root, profile)
                 try:
-                    snapshot = worker.request("inspect")
+                    snapshot = (worker.request("inspect", startupFailure="report") if startup
+                                else worker.request("inspect"))
                 finally:
                     worker.close()
+                from adkl.construction_log import findings as construction
+                # Logged construction failures matter most when a host fell back.
+                logged = construction(snapshot)
+                failed = (snapshot.get("startup") or {}).get("failed") if startup else None
+                if failed:
+                    return [{"rule": "STARTUP_IMPORT_FAILED", "severity": "ERROR",
+                             "source": "agent.yaml",
+                             "message": (f"Startup module {failed['module']} raised "
+                                         f"{failed['exception']} when imported before the factory "
+                                         f"(agent.startup: {', '.join(startup)}). The serving entry "
+                                         "point fails to start in this configuration, even if "
+                                         "importing the factory directly succeeds.")}] + logged, (
+                        f"Startup module {failed['module']} failed to import; the factory was "
+                        "not built and native declarations were not checked.")
+                order = (f" Serving import order: {', '.join(startup)} before the factory."
+                         if startup else
+                         " Factory imported directly; declare agent.startup to reproduce the serving import order."
+                         if doc.get("agent", {}).get("factory") else "")
                 native_inventory = doctor_scope.native_scope(snapshot["agent"])
                 workspace = Workspace(root, doc, snapshot)
                 if include_snapshot:
                     report["inspectionSnapshot"] = snapshot
-                from adkl.construction_log import findings as construction
-                # Logged construction failures matter most when a host fell back.
-                logged = construction(snapshot)
                 if not workspace.bindings:
-                    return logged, "No inspectable ADKL skill declarations. Dynamic toolsets and unmapped native inventory were not checked."
+                    return logged, "No inspectable ADKL skill declarations. Dynamic toolsets and unmapped native inventory were not checked." + order
                 raw = workspace.diagnostic_findings() + logged
-                return raw, "Native declarations, source mappings and construction logs checked. Dynamic instructions and state-dependent toolsets were not evaluated."
+                return raw, "Native declarations, source mappings and construction logs checked. Dynamic instructions and state-dependent toolsets were not evaluated." + order
             check("native", native, "native_declarations")
             native_check = report["checks"][-1]
             if native_check["detail"].startswith("No inspectable") and native_check["status"] == "passed":
@@ -319,6 +406,8 @@ def render(report, selected=None):
         command += ["--profile", report["profile"]]
     for name in report.get("context", {}).get("requiredContracts", []):
         command += ["--require-contract", name]
+    if report.get("context", {}).get("baseRef"):
+        command += ["--base-ref", report["context"]["baseRef"]]
     if any(c["id"] == "native" and c["status"] != "not_checked" for c in report["checks"]):
         command.append("--inspect")
     lines = ["# ADKL doctor fix brief", "",
@@ -330,6 +419,8 @@ def render(report, selected=None):
         "Rerun in the host's locked environment:", "", "```bash", shlex.join(command), "```", "",
         "## Check coverage", ""]
     lines += [f"- {c['id']}: {c['status']} — {c['detail']}" for c in report["checks"]]
+    from adkl.doctor_calls import render as render_calls
+    lines += render_calls(report.get("capabilityCalls", {}))
     evidence = report.get("verificationEvidence")
     if evidence:
         lines += ["", "## Retained host verification", "",
@@ -370,7 +461,8 @@ def render(report, selected=None):
         if chosen is not None and f["id"] not in chosen:
             continue
         # Quote every line: source text must not become Markdown headings/code.
-        location = f["location"]["path"] if f["location"] else "Native declaration; source location unavailable"
+        location = ((f["location"]["path"] + (f":{f['location']['line']}" if f["location"].get("line") else ""))
+                    if f["location"] else "Native declaration; source location unavailable")
         fields = [f"{f['severity']} {f['rule']} ({f['id']})",
                   f"Subject: {(f.get('subject') or {}).get('name') or f.get('skill') or 'project'}",
                   f"Location: {location}",
@@ -391,11 +483,13 @@ def main(argv=None):
     parser.add_argument("--require-contract", action="append", default=[],
                         choices=sorted(CONTRACTS),
                         help="Require current passing retained contract evidence; repeatable, no execution")
+    parser.add_argument("--base-ref",
+                        help="Git revision (e.g. the MR target) for partial-edit variant comparison")
     args = parser.parse_args(argv)
     try:
         previous = json.loads(args.baseline.read_text()) if args.baseline else None
         report = diagnose(args.project, inspect=args.inspect, profile=args.profile, previous=previous,
-                          require_contracts=args.require_contract)
+                          require_contracts=args.require_contract, base_ref=args.base_ref)
     except (ValueError, OSError, KeyError, TypeError):
         parser.exit(2, "doctor: invalid baseline or project input\n")
     print(json.dumps(report, indent=2) if args.format == "json" else render(report), end="\n")

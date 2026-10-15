@@ -1,5 +1,10 @@
 # Coding agents: start here
 
+[llms.txt](llms.txt) is the concise documentation index ([llm.txt](llm.txt) is a
+pointer). Use instructions, contracts and source from the same revision as the
+installed SDK; the development package version alone is not enough. These files
+are repository entry points, not automatically installed host instructions.
+
 For **integrating ADKL into another application**, read
 [the integration playbook](docs/agent-integration.md) first. It identifies public
 APIs, ownership boundaries, migration steps, tests and handoff requirements.

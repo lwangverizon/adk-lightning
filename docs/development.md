@@ -128,6 +128,9 @@ baseline is imposed in this first CI slice; expand those rules in a focused MR.
 Keep one source of integration guidance: [AGENTS.md](../AGENTS.md) routes tasks,
 [CLAUDE.md](../CLAUDE.md) imports it, and the
 [integration playbook](agent-integration.md) links exact contracts and examples.
+[llms.txt](../llms.txt) is the concise machine-readable documentation index;
+[llm.txt](../llm.txt) points to it. Update the index when supported workflows or
+canonical contract routes change, without copying API details into it.
 Do not duplicate the playbook into tool-specific instruction files. External
 hosts must explicitly point their coding assistant at the matching ADKL docs;
 installing the wheel alone does not install repository instructions.
@@ -140,7 +143,7 @@ When changing a public API, default, callback order, CLI, capability or packagin
    details in the contract page; update runnable examples when signatures change.
 3. Verify linked local paths with `python scripts/ci/check_docs.py` (also required
    by `python-lint`). This stdlib check covers root Markdown, `docs/` and workflow
-   skills, including Claude imports, and Console Markdown. It ignores fenced examples and external URLs;
+   skills, including Claude imports, Console Markdown, and `llms.txt`/`llm.txt`. It ignores fenced examples and external URLs;
    it does not validate anchors, prose semantics, commands or remote availability.
 4. Run the affected example/CLI and relevant native contracts. Use fixtures without
    credentials, and report live/host checks separately. For doc-only edits, avoid

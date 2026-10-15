@@ -75,6 +75,10 @@ SPECS = (
                                 "Inject the resolved presentation contract before "
                                 "the model call. Off leaves instruction shaping to "
                                 "the host; contract recording and emission remain active."),
+            "isolate_render_failures": ("bool", False,
+                                        "Decline a failing widget sink per spec and continue "
+                                        "unrelated widgets; never retry partial delivery "
+                                        "within the invocation. Cancellation still propagates."),
             "request_id": ("str", "adkl",
                            "Correlation id used in emit telemetry."),
         },

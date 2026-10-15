@@ -378,7 +378,22 @@ its instruction block. This lets inspection remain useful without double injecti
 It returns `None` after accepting delivery, or raises. A raised delivery error
 propagates and does not mark the spec emitted. Partial multi-payload delivery is
 possible; the host owns deduplication, retry and client acknowledgement. This is
-not an exactly-once transport guarantee. Without a sink, the existing generic
+not an exactly-once transport guarantee.
+
+Hosts may opt into `staged_widgets.isolate_render_failures: true` (or pass
+`isolate_render_failures=True` to `emit_staged`). Ordinary rendering/sink errors
+then decline that spec with `render_failed` and an exception type only, while
+unrelated specs continue. Successfully accepted partial payloads retain their
+receipts and companion caption; the failed spec is not marked fully emitted.
+A temporary invocation-scoped marker prevents another flush from retrying that
+spec in the same invocation. Freshly staged data on a later invocation may run.
+Cancellation still propagates and leaves the pending-flush marker intact. The
+option defaults false, preserving existing exception propagation. Host sinks
+must not signal acceptance before they have accepted the payload; this cannot
+undo a sink that performs a side effect and then raises. Transport acknowledgement,
+authorization and explicit retry remain host responsibilities.
+
+Without a sink, the existing generic
 `render_ui_widget` path is used. `request_id(context)` optionally supplies dynamic
 correlation to the builder instead of the configured fixed string.
 

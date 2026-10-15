@@ -2,7 +2,7 @@
 
 This repository starts from a new Git root. Earlier application snapshots,
 private host reports, remote configuration, original commit metadata and historical
-branches/tags are intentionally not part of this candidate. Restricted provenance
+branches/tags are intentionally not part of the public history. Restricted provenance
 records are retained outside it. This is a distribution boundary, not a claim of
 independent invention or cleared ownership. Existing copyright and license notices
 are preserved; an owner must review permissions before publication.
@@ -33,6 +33,19 @@ Some retained historical product/SDK assessments mention revisions from the
 pre-public development repository. Those revisions are not present in this
 clean-root candidate, and historical test results do not validate this snapshot.
 Reproduce fresh checks using [development](development.md).
+
+## Updates
+
+The public source lives at
+[github.com/lwangverizon/adk-lightning](https://github.com/lwangverizon/adk-lightning).
+Updates carry reviewed source changes onto this separate history. They do not
+merge private Git ancestry, restore omitted host reports, or replace neutral
+fixtures and Console assets with their private-source counterparts. Consequently,
+public and private commit IDs and whole-tree hashes are intentionally different.
+Use this repository's commit when building a public-source SDK wheel.
+
+Current additions are listed in [unreleased notes](releases/unreleased.md).
+[llms.txt](../llms.txt) routes agents to the matching public contracts.
 
 ## Publication limits
 

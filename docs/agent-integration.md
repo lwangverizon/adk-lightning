@@ -31,6 +31,10 @@ not prerequisites for using the free SDK/local UI.
 
 ## Read in this order
 
+The root [llms.txt](../llms.txt) indexes current contracts for assistants;
+[AGENTS.md](../AGENTS.md) remains the shared instruction entry point. Neither
+replaces the host repository's instructions or the exact API contract.
+
 1. Read the host's repository instructions and identify its agent constructor,
    callback chain, dependency lock, Runner/session service and tests.
 2. Read [current boundaries](../README.md#current-boundaries) and choose one path
@@ -244,6 +248,24 @@ execution. Hosts with their own runtime can explicitly attach declarations using
 no execution callbacks. CapabilityBindings workflows are discovered by the shared
 snapshot automatically. Private closure and activation-toolset discovery are not
 public export APIs; explicitly declare those graphs when appropriate.
+
+## Optional presentation and diagnostic additions
+
+Adopt only what the host needs; these do not replace constructor integration:
+
+- [Answer presentation](answer-presentation.md) and [Answer Explorer](answer-explorer.md)
+  are opt-in Python helpers, not automatic callbacks or Console switches. They
+  require host-owned evidence, delivery and recovery; no extra model call is
+  required by these APIs.
+- Per-spec staged-widget failure isolation is opt-in; see the
+  [staging contract](runtime-bindings.md). Preserve existing failure behavior
+  unless the host deliberately enables and tests isolation.
+- [Doctor](doctor.md) can inspect declared serving startup order, environment/lock
+  parity, artifacts, variants and reference hops. Explicit native inspection
+  imports host code; static findings do not establish deployed behavior.
+- [Capability call budgets](capability-call-budgets.md) consume retained host
+  measurements and show unknown coverage. They are advisory, not runtime caps
+  or evidence of model quality.
 
 ## Credential-free ADKL checks
 

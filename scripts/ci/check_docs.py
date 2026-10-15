@@ -1,6 +1,6 @@
 """Check local documentation link/import targets without dependencies or network.
 
-Scope: root/console Markdown, docs Markdown, and repository workflow skills. Supports
+Scope: root/console Markdown, llms.txt/llm.txt, docs and workflow skills. Supports
 inline Markdown links, reference definitions and standalone Claude @imports.
 Fenced examples are ignored. Does not validate URL availability or fragments.
 """
@@ -44,6 +44,8 @@ def targets(text):
 def check(root):
     root = root.resolve()
     files = sorted(set(root.glob("*.md")) | set((root / "console").glob("*.md"))
+                   | {root / name for name in ("llms.txt", "llm.txt")
+                      if (root / name).exists()}
                    | set((root / "docs").rglob("*.md"))
                    | set((root / ".agents" / "skills").rglob("*.md"))
                    | {p for p in (root / "projects").glob("README.md")}

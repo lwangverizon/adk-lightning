@@ -9,8 +9,8 @@ access controls.
 
 ## Report a suspected vulnerability privately
 
-**A public security intake address has not yet been designated. Public launch is
-blocked until the owner supplies and tests that channel.** If you already have
+**A monitored private security intake has not yet been designated. This remains
+an unresolved readiness gap despite public source availability.** If you already have
 repository access, contact a project Maintainer using your existing private
 project communication channel. Ask for a secure reporting route before sending
 sensitive details. Do not open a public issue or MR containing an exploit,

@@ -1,9 +1,10 @@
 # Maintenance and project decisions
 
-ADKL is a pre-release, maintainer-led engineering alpha. The repository's existing
-Maintainers administer restricted collaboration. Public maintainer identities,
-a canonical public destination, security/conduct contacts and an escalation owner
-must be confirmed before public launch; see [release gates](docs/community-release.md).
+ADKL is a pre-release, maintainer-led engineering alpha with public source at
+[github.com/lwangverizon/adk-lightning](https://github.com/lwangverizon/adk-lightning).
+Repository administrators manage collaboration; named maintenance commitments,
+private security/conduct contacts and an escalation owner still need confirmation.
+See [release gates](docs/community-release.md).
 This document does not assign someone a role or establish ownership of contributed
 or inherited material.
 

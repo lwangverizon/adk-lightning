@@ -1,0 +1,6 @@
+# ADKL agent documentation
+
+The canonical machine-readable documentation index is [llms.txt](llms.txt).
+Start with [AGENTS.md](AGENTS.md) for coding-agent instructions and
+[the integration playbook](docs/agent-integration.md) for host adoption.
+Read these files from the same source revision as your installed SDK.

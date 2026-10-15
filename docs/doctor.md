@@ -43,6 +43,7 @@ python -m adkl.doctor /path/to/project
 python -m adkl.doctor /path/to/project --format json > /tmp/doctor-before.json
 python -m adkl.doctor /path/to/project --inspect --format markdown
 python -m adkl.doctor /path/to/project --format json --baseline /tmp/doctor-before.json
+python -m adkl.doctor /path/to/project --base-ref origin/main   # MR: partial variant edits
 ```
 
 `--inspect` explicitly constructs trusted factory code in a fresh local project
@@ -69,11 +70,14 @@ project source tree, such as `/tmp`, to avoid making the report its own input.
 | Check | Evidence and limits |
 | --- | --- |
 | Instruction layers | Optional `doctor-instructions.json`: attributed saved final-request fixtures; checks owner bypass, inactive/duplicated/misplaced instructions, unknown additions, ordering and budgets. No runtime recapture or semantic certification; see [layering audit and strict CI gate](instruction-layering.md). |
-| Environment | Descriptor, profile, interpreter and dependency-file prerequisites; no dependency compatibility or credential test |
+| Environment | Descriptor, profile, interpreter and dependency-file prerequisites, plus installed distributions in the profile interpreter versus `uv.lock` (metadata only); no dependency compatibility or credential test |
 | Static | Existing project audit, configured prompts, skill files and catalog declarations; factory descriptors remain descriptor-only |
 | Mapped content | Factory `authoring.skills` metadata and instruction-cost rules without importing the host; no claim that mappings match runtime |
-| Skill variants | Same-named `SKILL.md` copies under the descriptor's skill roots, compared by declared tools; no body or runtime-selection comparison |
-| Native | Opt-in ADKL binding declaration audit, source-mapping reconciliation and factory construction logs; no dynamic instruction evaluation or state-dependent toolset enumeration |
+| Skill variants | Same-named `SKILL.md` copies under the descriptor's skill roots, compared by declared tools, plus ADK's description limit on copies no content check covers; with `--base-ref`, also by section bodies against that Git revision. No runtime-selection comparison |
+| Skill references | Explicit redirects such as `(use other-skill)` checked against skill names in the scanned roots; plain prose mentions are not checked |
+| Artifacts | `uv.lock` path wheels: presence, lock hash, root `Dockerfile*` `ARG` wheel paths and the running Doctor's identity versus the locked ADKL wheel. No image build or registry check |
+| Host code | Opt-in `doctor-host.json`: AST patterns in listed host Python paths, never imported |
+| Native | Opt-in ADKL binding declaration audit, source-mapping reconciliation and construction logs, after any declared `agent.startup` serving modules; no dynamic instruction evaluation or state-dependent toolset enumeration |
 | Retained verification | Reads configured host evidence, validates complete observations and current input/profile identity; never runs the evaluator |
 | Behavior | Not executed by Doctor; host evaluations own outcomes, authorization and delivery |
 
@@ -102,6 +106,39 @@ tracebacks are never retained. Offline fixtures can log expected infrastructure
 warnings; Doctor cannot tell whether a fallback is intended. Assert the expected
 runtime lane in host startup tests.
 
+### Serving import order
+
+`--inspect` imports the factory module directly. A host's serving entry point can
+import the same code in another order and fail where the factory alone succeeds.
+An eager package re-export can close an import cycle only under `import api`,
+crashing startup or making a caught capability-runtime failure serve a native
+fallback. Declare the modules the server imports first:
+
+```yaml
+version: 1
+agent:
+  name: example_agent
+  factory: example_agent.adkl_inspect:build
+  startup: [api]          # imported in order before the factory, same worker
+```
+
+- `STARTUP_IMPORT_FAILED` (ERROR) names the module and exception class when a
+  startup import raises. The factory is not built afterwards, because modules a
+  cycle left partially initialized would make any inventory unrepresentative;
+  the native check reports findings with no inventory, so earlier native findings
+  become `notVerified`, not resolved.
+- Records logged during startup imports become the existing
+  `FACTORY_CONSTRUCTION_*` findings, worded "while declared startup modules were
+  imported". This is the caught-fallback case.
+- Without `agent.startup`, the native check detail says the factory was imported
+  directly. Console chat and portal exports use the same order once declared.
+
+Startup modules are trusted host code with the same side-effect caveats as the
+factory. Supply synthetic credentials and deny network access as the host's own
+startup tests do. Use one profile per flag set that changes startup: an import
+cycle can depend on a rollout flag being on. Doctor does not run the server's
+lifespan or readiness hooks.
+
 Factories without inspectable ADKL binding declarations report native checks as
 `not_checked`. Their absence is not an empty successful inventory. Construction
 failures produce a failed check, not a guessed missing-tool diagnosis. Static
@@ -126,6 +163,84 @@ state transitions and recovery. Establish ownership before splitting skills; tes
 continuation and rejected-call recovery after compression. Moving detail into
 references can add calls or remove necessary context. Source size and tool
 registration do not establish actual exposure, provider caching or latency gains.
+
+## Incident-derived host checks
+
+These rules come from merged host regressions. Each is deterministic, cites its
+evidence and stays narrow; none executes host code.
+
+- `SKILL_VARIANT_PARTIAL_EDIT` (WARN, requires `--base-ref REV`): a Markdown
+  section that was identical (whitespace-normalized) in several copies of a skill
+  at `REV` changed in some copies but not others. Pass the MR target, for example
+  `--base-ref origin/test`. Copies added after `REV` and sections that already
+  differed are not reported. Fenced headings are ignored, and repeated headings
+  stay separate. The finding is anchored on an unchanged copy and disappears once
+  every copy matches. Intentional environment differences still need review.
+  An invalid ref fails the `skill_variants` check (exit 2) rather than skipping it.
+- `SKILL_REFERENCE_UNKNOWN` (WARN): a skill description or body redirects with
+  `(use|see|route to|handled by|owned by|belongs to NAME)`, or with
+  ``use/load/route to/hand off to/defer to/switch to `NAME` ``, and no scanned skill
+  has that name. The model is told to load a skill that the surface cannot load.
+  Only hyphenated lowercase names are matched, so `(see Gotchas)` and tool names
+  are ignored. A skill served only by another agent outside the descriptor's
+  skill roots is reported, because this agent cannot load it either.
+- `ARTIFACT_WHEEL_MISSING` / `ARTIFACT_WHEEL_HASH_MISMATCH` (ERROR): a `uv.lock`
+  path wheel is absent or its bytes differ from the lock hash.
+- `ARTIFACT_DOCKER_WHEEL_MISMATCH` (ERROR): a root `Dockerfile*` `ARG NAME=…whl`
+  default has a locked wheel's filename but a different path. A stale wheel that
+  still exists copies successfully, then the frozen sync fails in the image build.
+- `DOCTOR_SDK_DIFFERS_FROM_LOCK` (INFO): Doctor's checker modules differ from the
+  `adk-lightning` wheel the project locks. This is expected for a diagnostic
+  overlay, but the report then describes that SDK rather than the served one.
+- `DESCRIPTION_TOO_LONG` (ERROR on a served copy): ADK's `Frontmatter` rejects
+  a description over 1024 characters, so `load_skill_from_dir` raises and a
+  host that loads skills at import fails to start. Length is measured on the
+  parsed YAML value, as ADK does. The `skill_variants` scan also reports
+  unmapped copies (WARN), such as an MVA twin, before another surface loads it.
+- `REFERENCE_READ_BEFORE_ACTION` (INFO): the body orders a reference read before
+  acting: "read `references/x.md`, then call `tool`", "load … before `tool`",
+  "before `tool`, read …", or "read … and follow it". Each read is a sequential
+  `load_skill_resource` model step on that branch; inlining such procedures cut
+  one model call per turn in the host's measurements. Plain on-demand mentions
+  ("see references/x.md if asked") and fenced examples are not matched. Keep
+  rarely needed detail in references; measure calls per branch before and after.
+- `ENVIRONMENT_NOT_LOCKED` (WARN, environment check): the profile interpreter has
+  distributions outside `uv.lock`, versions the lock does not list, or a
+  path-locked wheel installed from another file (per `direct_url.json`). A host
+  inspection export once rendered 181 of 182 tool schemas differently from the
+  image for this reason. Locked-but-absent packages and local project sources
+  are not reported. One finding per project; `uv sync --locked` resolves it.
+- `HISTORY_ROLE_USER_SCAN` (WARN, opt-in): a function loops over ADK history
+  (`…events` or `…contents`), tests `role == "user"`, and exits the loop without
+  first requiring user authorship (`author`) or non-empty text. It also never
+  mentions function responses. ADK records tool results as `role="user"`, so the
+  scan can treat a tool result as the user's latest turn, or append media to it.
+  Negated text checks (`if not text: return`) are not guards. AG-UI `messages`
+  are skipped because they carry tool results under a separate role. Mark a
+  reviewed line with `# doctor: ignore[HISTORY_ROLE_USER_SCAN]`.
+
+Enable host-code patterns with `doctor-host.json` at the project root:
+
+```json
+{"version": 1, "python": {"include": ["tools", "sub_agents"], "exclude": ["tests"]}}
+```
+
+Paths are project-relative. Hidden, excluded and symlinked paths are skipped. Files
+that are too large or unparsable are counted in the check detail, not guessed.
+Host-code findings carry a source line. The line is display-only and not part of
+the finding ID, so an unrelated edit that shifts lines does not create a new
+finding in baseline comparison.
+
+## Capability LLM-call budgets
+
+Doctor prominently reports per-capability inference counts through optional
+`doctor-calls.json`. Default warning: **more than 3 inference attempts per customer
+invocation**, including nested model work and retries. Missing, partial, stale,
+scripted and measured evidence are clearly distinguished; no model is executed
+and no runtime cutoff is installed. This differs from `TURN_COST_HIGH`, which is
+a token-context estimate. See the [schema and rollout guide](capability-call-budgets.md)
+for coverage, freshness, baseline comparison and measurement limitations.
+The detailed coverage table is currently CLI/JSON only, not a new portal widget.
 
 ## Boundary contracts and request measurements
 

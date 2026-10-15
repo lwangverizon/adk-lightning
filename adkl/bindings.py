@@ -244,7 +244,8 @@ class NativeLifecycle:
             result = await widgets_mod.emit_staged(
                 callback_context, specs,
                 self._request_id(callback_context) if getattr(self, "_request_id", None) else request_id,
-                sink=getattr(self, "_widget_sink", None))
+                sink=getattr(self, "_widget_sink", None),
+                isolate_render_failures=self._widget_cfg.get("isolate_render_failures", False))
             # Stashed for the trace rather than logged: the console's whole job
             # is showing why a widget did or did not appear, and a log line in a
             # dev server is not where a reviewer will look.

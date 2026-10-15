@@ -1,5 +1,9 @@
 # Shared presentation contracts
 
+For opt-in evidence-backed text/procedure selection before role resolution, see
+[answer presentation](answer-presentation.md). It leaves the existing policy
+versions and callback behavior unchanged; hosts still own delivery and recovery.
+
 `adkl.presentation_contracts` supplies a pure, versioned reply-shaping policy for
 hosts that want to keep native widget eligibility and instruction injection.
 It imports only stdlib and never inspects state, calls tools/models, installs

@@ -607,7 +607,8 @@ class EmitResult:
 
 
 async def emit_staged(callback_context, specs: list[WidgetSpec],
-                      request_id: str = "adkl", *, sink=None) -> EmitResult:
+                      request_id: str = "adkl", *, sink=None,
+                      isolate_render_failures: bool = False) -> EmitResult:
     """Drain every live register at the turn boundary. Gates 1-6, in order.
 
     Returns an EmitResult rather than None: every declined gate is named, because
@@ -619,6 +620,14 @@ async def emit_staged(callback_context, specs: list[WidgetSpec],
     first_caption, floor_companion = "", ""
 
     for spec in specs:
+        # Isolated delivery failures are terminal for this invocation, including
+        # partial multi-payload delivery. Never retry accepted siblings implicitly.
+        failure_key = f"temp:adkl_widget_render_failure:{spec.key}"
+        invocation = str(getattr(callback_context, "invocation_id", ""))
+        if isolate_render_failures and state.get(failure_key) == {"invocation": invocation}:
+            result.gates.append(GateResult(spec.key, False, "render_failed",
+                                           "already attempted this invocation"))
+            continue
         # 1 -- live?
         consider, revived = spec_is_live(state, spec)
         if not consider:
@@ -687,27 +696,39 @@ async def emit_staged(callback_context, specs: list[WidgetSpec],
                       "this one is worth alerting on")))
             continue
 
-        # 6 -- render
-        for index, entry in enumerate(built):
-            payload, caption = entry if isinstance(entry, tuple) else (entry, "")
-            widget_id = (spec.widget_id if len(built) == 1
-                         else f"{spec.widget_id}-{index}")
-            if sink is None:
-                _render(callback_context, widget_id, payload)
-            else:
-                import inspect
-                accepted = sink(callback_context, widget_id, payload)
-                if inspect.isawaitable(accepted):
-                    accepted = await accepted
-                if accepted is not None:
-                    raise WidgetError("widget sink must return None or raise")
-            result.emitted.append({
-                "key": spec.key,
-                "widgetId": widget_id,
-                "type": (payload or {}).get("type") or spec.payload_type,
-            })
-            if caption and not first_caption:
-                first_caption = caption
+        # 6 -- render. Opt-in isolation retains accepted payload receipts and
+        # captions while declining the failed spec, never the unrelated specs.
+        try:
+            for index, entry in enumerate(built):
+                payload, caption = entry if isinstance(entry, tuple) else (entry, "")
+                widget_id = (spec.widget_id if len(built) == 1
+                             else f"{spec.widget_id}-{index}")
+                if sink is None:
+                    _render(callback_context, widget_id, payload)
+                else:
+                    import inspect
+                    accepted = sink(callback_context, widget_id, payload)
+                    if inspect.isawaitable(accepted):
+                        accepted = await accepted
+                    if accepted is not None:
+                        raise WidgetError("widget sink must return None or raise")
+                result.emitted.append({
+                    "key": spec.key,
+                    "widgetId": widget_id,
+                    "type": (payload or {}).get("type") or spec.payload_type,
+                })
+                if caption and not first_caption:
+                    first_caption = caption
+                if not floor_companion:
+                    floor_companion = spec.default_companion
+        except Exception as exc:
+            if not isolate_render_failures:
+                raise
+            # No raw exception messages: sinks can carry private host payloads.
+            state[failure_key] = {"invocation": invocation}
+            result.gates.append(GateResult(spec.key, False, "render_failed",
+                                           type(exc).__name__))
+            continue
 
         # MANDATORY, and the reason is an ADK contract rather than bookkeeping:
         # ADK emits the after-agent event only when the callback returns content

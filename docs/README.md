@@ -8,10 +8,13 @@ see the [product overview](../README.md#runtime-doctor-and-console).
 | I want to… | Start here |
 | --- | --- |
 | Understand what works today | [Project overview](../README.md) |
-| Review architecture, validation and remaining acceptance work | [Technical review — September 20](reports/technical-review-2026-09-20.md) |
+| Read changes since the initial community snapshot | [Unreleased notes](releases/unreleased.md) |
+| Review historical architecture, validation and acceptance work | [Technical review — September 20](reports/technical-review-2026-09-20.md) |
 | Find public APIs, implementation owners and tests | [Architecture and contributor map](architecture.md) |
+| Track capability LLM calls and missing measurement coverage | [Capability call budgets](capability-call-budgets.md) |
 | Diagnose project wiring and export a fix brief | [ADKL Doctor](doctor.md) |
 | Understand free tooling and proposed paid services | [Product direction](../COMPETITIVE_PRODUCT_PLAN.md#free-tooling-and-managed-services) |
+| Give an assistant a concise current documentation index | [llms.txt](../llms.txt), [shared agent instructions](../AGENTS.md) |
 | Ask a coding agent to integrate ADKL | [Integration playbook](agent-integration.md) |
 | Consume a pre-release checkout in another project | [Checkout wheel workflow](agent-integration.md#consume-a-pinned-main-checkout-today) |
 | Review instruction layering, skill complexity and model turns | [Agent design](agent-design.md), [final-request layering audit](instruction-layering.md) |
@@ -47,10 +50,13 @@ Use these when you need exact behavior or extension contracts.
 - [Background tasks](background-tasks.md): persistent submission, authorized task management and independently hosted native workers; no automatic in-flight resume.
 - [Capability policy](capability-policy.md): dispatch guards, events and workflow helpers.
 - [Shared features](shared-features.md): reusable features and project boundaries.
+- [Capability inference-call budgets](capability-call-budgets.md): host-retained counts, advisory budgets and explicit unknown coverage; no runtime cutoff.
 - [Doctor boundary evidence](doctor-boundaries.md): output consumers, retained contract probes and assembled-request measurements.
 - [Generic tool-result sizing](tool-results.md): application-owned reduction, incomplete previews and TOON assessment.
 - [Streaming](streaming.md): progress, final responses and cancellation.
 - [Presentation contracts](presentation-contracts.md): opt-in visual reply policy with host-owned eligibility and injection.
+- [Answer presentation](answer-presentation.md): opt-in extractive text/procedure selection with host-owned evidence, delivery and recovery.
+- [Answer Explorer](answer-explorer.md): complete reply plus one inline card of grounded, tap-to-ask drill-down topics.
 - [Presentation design](shared-presentation-design.md): packs and widget responsibilities.
 - [A2UI rendering](a2ui-support.md): version baseline, primitive matrix, gallery and interaction limits.
 - [Execution-support manifest](../adkl/capabilities.py): implemented, partial and unsupported feature targets; not an inventory of Python-only APIs.

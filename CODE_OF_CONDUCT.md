@@ -17,9 +17,9 @@ should not decide its outcome.
 
 ## Reporting and enforcement readiness
 
-Use an established private project-maintainer contact for current restricted
-collaboration. Do not post sensitive incident details in public issues.
-**Before public launch, the owner must designate a private conduct contact and an
+Use an established private project-maintainer contact if you have one.
+Do not post sensitive incident details in public issues.
+**The owner still needs to designate and test a private conduct contact and an
 independent escalation route, and publish them here.** No monitored address or
-independent moderation team is implied today. The missing contact is an explicit
-[public-launch blocker](docs/community-release.md), not a completed safeguard.
+independent moderation team is implied today. Public source availability does
+not resolve this [readiness gap](docs/community-release.md).

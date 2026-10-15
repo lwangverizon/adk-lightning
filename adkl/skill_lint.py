@@ -19,6 +19,18 @@ from collections import defaultdict
 import yaml
 
 _ABSENT = object()   # distinguishes an unset annotation from an empty value
+# ADK's Frontmatter validator rejects longer descriptions, so load_skill_from_dir
+# raises and a host that loads skills at import fails to start (google.adk.skills
+# models._validate_description). Measured like ADK: characters of the parsed value.
+DESCRIPTION_MAX_CHARS = 1024
+
+
+def description_too_long(desc) -> str | None:
+    """Message when ADK's loader would reject this description, else None."""
+    if not isinstance(desc, str) or len(desc) <= DESCRIPTION_MAX_CHARS:
+        return None
+    return (f"description is {len(desc)} characters; ADK rejects more than "
+            f"{DESCRIPTION_MAX_CHARS}, so loading this skill raises")
 
 
 def _conflict():
@@ -283,6 +295,8 @@ def check_one(dir_name: str, fm: dict, body: str,
         out.append(("WARN", "NAME_DIR_MISMATCH",
                     f"frontmatter name {name!r} != directory {dir_name!r}; "
                     "retrieval and load_skill() may disagree"))
+    if (too_long := description_too_long(desc)) is not None:
+        out.append(("ERROR", "DESCRIPTION_TOO_LONG", too_long))
     if not desc.strip():
         out.append(("ERROR", "DESCRIPTION_MISSING",
                     "no description — skill is unreachable by semantic retrieval"))

@@ -1,24 +1,26 @@
 # Community alpha: publication gates
 
-This is a clean-history public candidate, not an approved public release.
-It contains a reviewed source snapshot without inherited application history,
-private integration reports, remote refs or corporate commit identities.
-The original repository and restricted provenance evidence are retained separately.
-Copyright and third-party license notices are preserved. Removing identifiers
-or starting a new Git root does **not** establish redistribution rights.
+The engineering-alpha source is available at
+[github.com/lwangverizon/adk-lightning](https://github.com/lwangverizon/adk-lightning).
+This public branch uses a separate snapshot history, not inherited application
+history or private integration reports. A source update is not a stable release.
+Restricted provenance records remain separate; copyright and third-party license
+notices are preserved. Public availability and identifier cleanup do **not**
+establish redistribution rights or completion of the remaining gates.
 
 ## Owner decisions required before public availability
 
 | Gate | Required evidence | Current state |
 | --- | --- | --- |
 | Rights and provenance | Owner/employer/third-party permission for code, examples, assets and derivative work; correct notices | Not established by source cleanup or Apache license declaration |
-| Publication scope | Review the exact snapshot, all refs, metadata and distributable artifacts; scan secrets and restricted identifiers | Local candidate only; recheck after any change |
-| Public destination | Canonical repository and issue URLs tested without internal access | Not designated |
+| Publication scope | Review the exact snapshot, all refs, metadata and distributable artifacts; scan secrets and restricted identifiers | Public snapshot branch; review every update before pushing |
+| Public destination | Canonical repository and issue URLs tested without internal access | [Public source](https://github.com/lwangverizon/adk-lightning) and [issues](https://github.com/lwangverizon/adk-lightning/issues) |
 | Security and conduct | Named maintainers, monitored private contacts and escalation route | Pending; see SECURITY.md, CODE_OF_CONDUCT.md and GOVERNANCE.md |
 | Contribution CI | Isolated runners, safe fork execution, required checks and a deliberate failing-change drill | Configuration available; remote execution/controls not established |
 | Release | Immutable version, updated notes, wheel/sdist/Console archives, checksums and outsider onboarding | No public release/tag created |
 
-Publish only the approved snapshot's branch to a **new, empty repository**.
+Update only the reviewed public snapshot branch, retaining its separate history.
+For a new public destination, start with a new, empty repository.
 Do not mirror the original repository, its refs, tags, bundles, stashes, reflogs,
 issues, attachments or build logs. Force-pushing a cleaned branch to an existing
 server does not purge server-retained objects, merge-request refs, forks or caches.
@@ -33,7 +35,9 @@ explicit web runs. It suppresses duplicate branch pipelines with open MRs,
 rejects parent-project pipelines for cross-project MRs and disables publication.
 Forks may run branch pipelines with their own resources.
 
-On the chosen project, select this CI configuration path only after:
+This configuration is a **GitLab** candidate, not an active GitHub Actions
+workflow. Its presence does not run checks on the public GitHub repository.
+On a separately provisioned GitLab project, select it only after:
 
 1. Provisioning ephemeral Linux/amd64 container runners without customer network
    access, host Docker sockets or trusted shell workspaces.

@@ -40,6 +40,8 @@ tradeoff to see, not a defect to block a save on.
 
 from __future__ import annotations
 
+import re
+
 # Roughly 4 chars per token, the usual heuristic. Stated once so the estimate is
 # consistent with the catalog's own arithmetic rather than drifting from it.
 CHARS_PER_TOKEN = 4
@@ -70,6 +72,38 @@ REFS_BYTES_FLOOR = 8000
 
 def _tokens(text: str) -> int:
     return round(len(text) / CHARS_PER_TOKEN)
+
+
+# A procedure the model must read before it can act costs one sequential model
+# step (load_skill_resource) on that branch. Inlining an always-required read
+# can remove this hop; actual savings require host measurement. Only explicit
+# ordering is matched:
+# "read <ref>, then call `tool`", "load <ref> before `tool`", "before `tool`,
+# read <ref>" and "read <ref> and follow it". Plain on-demand mentions are not.
+_REF = r"(?:\[[^\]]*\]\()?`?(?P<ref>(?:references|assets)/[\w./-]+?)`?\)?(?=[\s,;:)]|$)"
+_READ = r"\b(?:read|load|open|consult)\s+(?:the\s+)?"
+_TOOL = r"`(?P<tool>[a-z][a-z0-9_]{3,})`"
+_HOPS = (
+    re.compile(_READ + _REF + r"[^.]{0,80}?\b(?:then|before|first)\b[^.]{0,40}?" + _TOOL, re.I),
+    re.compile(r"\bbefore\s+(?:calling\s+|you\s+call\s+)?" + _TOOL + r"[^.]{0,60}?" + _READ + _REF, re.I),
+    re.compile(_READ + _REF + r"[^.]{0,40}?\b(?:and|then)\s+follow\b", re.I),
+)
+_FENCED = re.compile(r"^\s{0,3}(`{3,}|~{3,}).*?^\s{0,3}\1", re.M | re.S)
+HOP_LIMIT = 4
+
+
+def reference_hops(body: str) -> list[tuple[str, str | None]]:
+    """[(reference, tool or None)] the body says to read before acting."""
+    text = " ".join(_FENCED.sub(" ", body).split())
+    matches = sorted((match for pattern in _HOPS for match in pattern.finditer(text)),
+                     key=lambda match: match.start())
+    found: dict[str, str | None] = {}
+    for match in matches:  # Source order, so the message reads like the skill.
+        ref = match.group("ref").rstrip(".")
+        tool = match.groupdict().get("tool")
+        if ref not in found or (tool and not found[ref]):
+            found[ref] = tool
+    return list(found.items())
 
 
 def check_skill_cost(name: str, body: str, declared: list, tool_cost: dict,
@@ -107,6 +141,17 @@ def check_skill_cost(name: str, body: str, declared: list, tool_cost: dict,
                     f"~{turn_tok} tokens per model call "
                     f"({body_tok} instruction + {tools_tok} known tool tokens)"
                     + qualification))
+
+    hops = reference_hops(body)
+    if hops:
+        shown = "; ".join(f"{ref} before `{tool}`" if tool else f"{ref} (procedure delegated)"
+                          for ref, tool in hops[:HOP_LIMIT])
+        more = f"; {len(hops) - HOP_LIMIT} more" if len(hops) > HOP_LIMIT else ""
+        out.append(("INFO", "REFERENCE_READ_BEFORE_ACTION",
+                    f"Must read {shown}{more} before acting. Each read is a "
+                    f"sequential model step (load_skill_resource) on every turn of "
+                    f"that branch. Inline procedures a common branch always needs; "
+                    f"keep rarely needed detail on demand"))
 
     if ref_bytes and body:
         ratio = ref_bytes / len(body)

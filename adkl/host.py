@@ -9,7 +9,21 @@ import importlib
 import re
 from types import SimpleNamespace
 
+from adkl.agent_schema import startup_modules
 from adkl.chat import ChatSession
+
+
+class StartupImportError(RuntimeError):
+    """A declared serving entry module failed to import before the factory.
+
+    Carries only the descriptor's module name and the exception class name:
+    host exception text and tracebacks can contain credentials or source.
+    """
+
+    def __init__(self, module: str, exception: str):
+        super().__init__(f"Startup module {module} failed to import ({exception})")
+        self.module = module
+        self.exception = exception
 
 
 def entrypoint(doc):
@@ -53,8 +67,31 @@ class HostChatSession(ChatSession):
         try:
             self._build()
             return []
+        except StartupImportError as exc:
+            return [f"{exc}; reproduce the serving import order locally."]
         except Exception as exc:
             return [f"Host factory could not load ({type(exc).__name__}); check its project dependencies."]
+
+    def _import_startup(self, log):
+        """Import declared serving entry modules in order, as the server would.
+
+        A failure stops construction: modules left partially initialized by an
+        import cycle would make any factory built afterwards unrepresentative.
+        """
+        modules = startup_modules(self.doc)
+        if not modules:
+            self._startup = None
+            return
+        self._startup = {"modules": modules, "imported": [], "failed": None}
+        for module in modules:
+            log["phase"] = "startup"
+            try:
+                importlib.import_module(module)
+            except (Exception, SystemExit) as exc:  # SystemExit: config guards exiting
+                self._startup["failed"] = {"module": module, "exception": type(exc).__name__}
+                raise StartupImportError(module, type(exc).__name__) from None
+            self._startup["imported"].append(module)
+        log["phase"] = "factory"
 
     def _build(self):
         if self._runner is not None:
@@ -66,8 +103,14 @@ class HostChatSession(ChatSession):
         from google.adk.sessions import InMemorySessionService
         from adkl import construction_log
         # Import and construction run unchanged; only their log records are kept.
+        # A failed startup import is final for this worker: retrying would
+        # import over modules the failed attempt left partially initialized.
+        failed = (getattr(self, "_startup", None) or {}).get("failed")
+        if failed:
+            raise StartupImportError(failed["module"], failed["exception"])
         with construction_log.capture() as self._construction_log:
             prepare(self.root)
+            self._import_startup(self._construction_log)
             module, symbol = entrypoint(self.doc).split(":")
             factory = getattr(importlib.import_module(module), symbol)
             if not callable(factory):
@@ -134,9 +177,24 @@ class HostChatSession(ChatSession):
             "Runtime behavior is owned by the host factory; inspect its callback adoption.")
         return report
 
-    def inspect(self):
-        self._build()
+    def inspect(self, startup_failure="raise"):
+        """Declaration snapshot; ``startup_failure="report"`` returns a failed one.
+
+        The report form lets Doctor name the failing startup module without
+        parsing a worker error. Other callers keep the exception contract.
+        """
+        try:
+            self._build()
+        except StartupImportError:
+            if startup_failure != "report":
+                raise
+            return {"source": "host_factory", "factory": entrypoint(self.doc),
+                    "sessionMode": "disposable_local", "agent": None,
+                    "startup": getattr(self, "_startup", None),
+                    "constructionLog": getattr(self, "_construction_log", None),
+                    "consistency": "A declared startup module failed; the factory was not built."}
         report = {"source": "host_factory", "factory": entrypoint(self.doc),
+                "startup": getattr(self, "_startup", None),
                 "lastRequest": getattr(self, "_last_request_snapshot", None),
                 "sessionMode": "disposable_local", "agent": describe_agent(self._agent),
                 "constructionLog": getattr(self, "_construction_log", None),

@@ -39,6 +39,20 @@ class DocumentationCheckTests(unittest.TestCase):
             _, errors = check(root)
             self.assertEqual(errors, ["console/README.md:1: missing target: missing.md"])
 
+    def test_agent_text_indexes_check_links_but_ignore_unrelated_text(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = pathlib.Path(directory)
+            (root / "AGENTS.md").write_text("# Instructions\n")
+            (root / "llm.txt").write_text("[index](llms.txt)\n")
+            index = root / "llms.txt"
+            index.write_text("[instructions](AGENTS.md)\n[contract](missing.md)\n")
+            (root / "notes.txt").write_text("[not documentation](absent.md)\n")
+            files, errors = check(root)
+            self.assertEqual({p.name for p in files}, {"AGENTS.md", "llms.txt", "llm.txt"})
+            self.assertEqual(errors, ["llms.txt:2: missing target: missing.md"])
+            index.write_text("[instructions](AGENTS.md)\n")
+            self.assertEqual(check(root)[1], [])
+
     def test_absolute_and_escaping_targets_fail(self):
         with tempfile.TemporaryDirectory() as directory:
             root = pathlib.Path(directory)

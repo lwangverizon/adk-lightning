@@ -18,6 +18,7 @@ complete protocol conformance and guaranteed agent quality are not implied.
 [Unified Capability Selection](docs/capability-bindings.md) ·
 [Background tasks](docs/background-tasks.md) ·
 [Create an agent](docs/project-onboarding.md) · [Documentation](docs/README.md) ·
+[Agent documentation index](llms.txt) ·
 [Contribute](CONTRIBUTING.md) · [Security](SECURITY.md) ·
 [Community release readiness](docs/community-release.md)
 
@@ -100,6 +101,8 @@ to the supported API, callback contract and verification cases. Until ADKL is
 published, hosts build a wheel from a pinned `main` commit and record it in their
 own lockfile; they do not import from a mutable checkout. Claude Code has a
 [shared entry point](CLAUDE.md); other assistants can read the same playbook.
+[llms.txt](llms.txt) provides a concise index of current contracts; [llm.txt](llm.txt)
+points to it. Read all guidance from the revision used to build the installed SDK.
 
 ## Two ways to use ADKL
 
@@ -134,6 +137,8 @@ inside the SDK wheel. Console assets ship as a separate ZIP; see
 | Model context | History slicing and completed-tool-history repair through composable callbacks |
 | Tool results | Explicit application-declared projection and a [generic size guard](docs/tool-results.md); oversized results become incomplete previews, while domain-specific reduction stays with the application |
 | Presentation | Reusable packs, staged widget emission and rendering paths for all 18 A2UI basic primitives in v0.9 and the v1.0 candidate |
+| [Answer presentation](docs/answer-presentation.md) and [Answer Explorer](docs/answer-explorer.md) | Opt-in Python helpers for extractive text/procedures and inline drill-down topics; no additional model call, with host-owned evidence, staging and recovery |
+| [Capability call budgets](docs/capability-call-budgets.md) | Doctor reports host-retained inference counts and missing coverage; advisory diagnostics, not runtime limits |
 | Agent design review | Shared CLI/editor lint, static audits and [attributed final-request layering checks](docs/instruction-layering.md) across prompts, skills and tool declarations |
 | Boundary evidence | Doctor checks explicit tool-output consumers and retained host contract/request measurements; it does not execute tools or enforce consent |
 | Debugging and evaluation evidence | Runtime diagnostics, local host-evaluator runs for saved changes, and baseline/candidate report comparison |

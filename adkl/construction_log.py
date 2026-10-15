@@ -3,7 +3,9 @@
 Hosts often catch a construction failure, log it and keep serving a fallback,
 for example a native lane after a duplicate scoped tool name. The inspected
 agent is then valid but no longer the configuration the host intended. These
-records make that visible to Doctor without replaying traffic.
+records make that visible to Doctor without replaying traffic. When the
+descriptor declares ``agent.startup`` serving modules, records logged while
+they are imported carry ``phase: startup``; the factory's own carry ``factory``.
 
 Formatted arguments, exception text and tracebacks can contain credentials or
 customer data, so they are never retained. A message is kept only when it is a
@@ -51,6 +53,9 @@ def capture(level: int = logging.WARNING):
                 entry = {"logger": str(record.name)[:120],
                          "level": logging.getLevelName(record.levelno),
                          "message": _message(record), "exception": exception}
+                # Set by hosts that import serving entry modules first.
+                if result.get("phase"):
+                    entry["phase"] = result["phase"]
                 key = tuple(entry.values())
                 if key not in seen:
                     seen.add(key)
@@ -67,6 +72,7 @@ def capture(level: int = logging.WARNING):
         yield result
     finally:
         logging.Logger.handle = original  # type: ignore[method-assign]
+        result.pop("phase", None)  # A capture-time marker, not part of the record.
 
 
 def findings(snapshot: dict) -> list[dict]:
@@ -82,12 +88,14 @@ def findings(snapshot: dict) -> list[dict]:
         detail = entry.get("message") or "message withheld; it may contain data"
         if entry.get("exception"):
             detail += f" ({entry['exception']})"
+        stage = ("declared startup modules were imported" if entry.get("phase") == "startup"
+                 else "the factory was constructed")
         raw.append({
             "rule": "FACTORY_CONSTRUCTION_ERROR" if error else "FACTORY_CONSTRUCTION_WARNING",
             # Advisory: Doctor cannot tell whether the host recovered correctly.
             "severity": "WARN" if error else "INFO",
-            "message": (f"{entry.get('level')} logged by {entry.get('logger')} while the "
-                        f"factory was constructed: {detail}. A caught startup failure can "
+            "message": (f"{entry.get('level')} logged by {entry.get('logger')} while "
+                        f"{stage}: {detail}. A caught startup failure can "
                         "leave the inspected agent on a fallback configuration."),
         })
     if log.get("dropped"):

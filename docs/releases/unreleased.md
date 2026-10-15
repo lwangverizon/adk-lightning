@@ -18,6 +18,28 @@ commit and artifact hash until maintainers announce an immutable release.
 - Doctor declaration, instruction-layer and retained contract-evidence checks;
   observations are not authorization or model-quality certification.
 
+## Changes since the initial community snapshot
+
+- Opt-in per-spec staged-widget render-failure isolation; unchanged default
+  behavior. See [runtime bindings](../runtime-bindings.md).
+- [Answer presentation](../answer-presentation.md): Python-only extractive text
+  and procedure selection with host-owned evidence, delivery and recovery.
+- [Answer Explorer](../answer-explorer.md): complete answer plus inline,
+  tap-to-ask topics; host-owned staging/action transport, no added model call.
+- [Doctor](../doctor.md): partial skill-variant edits, unknown skill references,
+  local artifact provenance, diagnostic SDK/served lock differences and opt-in
+  host history-role checks.
+- Doctor serving-startup import order, profile environment/lock parity, native
+  skill-description limits and advisory reference-before-action findings.
+- [Capability inference-call budgets](../capability-call-budgets.md): retained
+  host measurements and coverage reporting; advisory, not execution limits.
+- Shared coding-agent routing through [AGENTS.md](../../AGENTS.md),
+  [llms.txt](../../llms.txt) and the compatibility pointer [llm.txt](../../llm.txt).
+  The documentation gate checks their local link targets.
+
+These entries describe implemented changes and their contracts, not new live
+host evaluations or a new release certification. Dated reports remain historical.
+
 ## Community preparation
 
 - Fix execution-trace expansion to paint on its own Material surface.

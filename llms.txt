@@ -1,0 +1,61 @@
+# ADK Lightning (ADKL)
+
+> Engineering-alpha Python SDK and local Flutter Console for shared Google ADK runtime patterns. Native ADK owns execution; the host owns identity, authorization, tools, sessions and deployment. Runtime, Doctor and Console are independent adoption choices, not hosted services.
+
+Read documentation and source from the same commit as the installed SDK. During the pre-release phase, build an immutable wheel from an exact commit and record its SHA-256 in the host handoff; the development package version alone is not an artifact identity. The wheel does not include these documentation files. This index routes to canonical contracts rather than duplicating them. Paths are relative to this repository root.
+
+## Start here
+
+- [Coding-agent instructions](AGENTS.md): task routing and repository contribution rules; read the host's instructions before editing another application.
+- [Integration playbook](docs/agent-integration.md): public APIs, constructor choices, pinned-wheel workflow, ownership and required handoff.
+- [Documentation index](docs/README.md): task-oriented navigation and current runtime references.
+- [Overview and limits](README.md): current capabilities versus unsupported behavior.
+- [Credential-free quickstart](docs/quickstart.md): native ADK execution with synthetic models.
+- [Claude Code entry point](CLAUDE.md): imports the shared AGENTS.md instructions.
+
+## Runtime integration
+
+- [Unified Capability Selection](docs/capability-bindings.md): CapabilityBindings composes native skills/workflows/specialists/tools; optional CapabilityRetrieval shortlists; the parent model chooses execution. Visibility is not authorization.
+- [Background tasks](docs/background-tasks.md): explicit launches, receipts and authorized management with host-supervised workers; no durable in-flight resume.
+- [Runtime bindings](docs/runtime-bindings.md): skill-only/shared lifecycle, callback ordering, native ownership and staged presentation.
+- [Incremental adoption](docs/adoption.md): adopt selected callbacks without replacing the host constructor.
+- [SDK contract](docs/sdk.md): file-configured native agents, state and diagnostics.
+- [Capability policy](docs/capability-policy.md): dispatch guards and execution boundaries.
+- [Tool results](docs/tool-results.md): explicit projection, generic size limits and host-owned reduction.
+- [Execution support](adkl/capabilities.py): target-specific support for declared features; Python-only APIs also have their own contracts.
+
+## Presentation
+
+- [Presentation contracts](docs/presentation-contracts.md): opt-in roles, eligibility and host injection.
+- [Answer presentation](docs/answer-presentation.md): opt-in extractive text/procedure selection; host-owned evidence and delivery, no added model call.
+- [Answer Explorer](docs/answer-explorer.md): complete reply plus inline tap-to-ask topics; host-owned transport and authorization.
+- [A2UI support](docs/a2ui-support.md): v0.9 and v1.0-candidate primitive rendering and explicit interaction/protocol limits.
+- [Maintained examples](projects/README.md): native-agent and staged-ui examples, not customer applications.
+
+## Doctor, inspection and verification
+
+- [Doctor](docs/doctor.md): static findings, explicit native inspection, serving import order, environment/lock and artifact checks, variant/reference diagnostics; not a production certification.
+- [Capability inference-call budgets](docs/capability-call-budgets.md): advisory call counts and missing measurement coverage from host-retained evidence, not runtime cutoffs.
+- [Boundary evidence](docs/doctor-boundaries.md): declared consumers and retained contract/request observations.
+- [Embedded inspection](docs/embedded-inspection.md): explicit registration and host-authorized read-only service integration.
+- [Host acceptance](docs/host-acceptance.md): integration acceptance contract.
+- [Change verification](docs/verification.md): configured host evaluators; the host owns grading correctness.
+- [Evaluation comparison](docs/evaluation.md): compare host-produced baseline/candidate results.
+
+## Authoring and maintenance
+
+- [Project onboarding](docs/project-onboarding.md): install, create/attach, inspect and package; Console is local development, not a production session viewer.
+- [Agent design](docs/agent-design.md): prompts, skills and tool boundaries.
+- [Instruction layering](docs/instruction-layering.md): review the final assembled request after callbacks and tool preparation.
+- [Architecture](docs/architecture.md): implementation and test ownership.
+- [Development](docs/development.md): locked checks and documentation maintenance.
+- [Unreleased changes](docs/releases/unreleased.md): current changes, not an immutable release announcement.
+- [Community release gates](docs/community-release.md): publication scope, rights, CI and artifact limits.
+
+## Optional
+
+- [Offline portal](docs/static-portal.md): reviewed read-only snapshot publication, not live execution.
+- [Connected inspection](docs/connected-inspection.md): separate declaration gateway and deployment boundaries.
+- [SDK releases](docs/sdk-releases.md): artifact and release controls.
+- [Product direction](COMPETITIVE_PRODUCT_PLAN.md): intended product, not implemented capability.
+- [Roadmap](ROADMAP.md): future work, not execution evidence.

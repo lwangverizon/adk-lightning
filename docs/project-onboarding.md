@@ -32,6 +32,10 @@ authoring:
     math: skills/math/SKILL.md
 ```
 
+If the server imports other modules before the factory (for example `api`),
+list them as `agent.startup: [api]` so inspection follows the serving import
+order; see [Doctor serving import order](doctor.md#serving-import-order).
+
 Each path must identify the actual file loaded by the factory, stay inside the
 host root and avoid symlinks. The console checks its name, description, procedure
 and tool bindings against the runtime declaration. The mapping grants editing of

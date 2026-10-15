@@ -202,6 +202,28 @@ def _check_unknown_blocks(doc: dict, errors: list, warnings: list) -> None:
              f"{', '.join(sorted(KNOWN_BLOCKS))}")
 
 
+_MODULE = re.compile(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*")
+STARTUP_LIMIT = 16
+
+
+def startup_modules(doc) -> list[str]:
+    """Serving entry modules a host factory imports first, in order.
+
+    ``agent.startup`` reproduces the serving import order during inspection.
+    Importing a factory module directly can succeed while the real entry point
+    (for example ``api``) hits an import cycle or a caught construction failure.
+    """
+    agent = doc.get("agent") if isinstance(doc, dict) else None
+    if not isinstance(agent, dict) or "startup" not in agent:
+        return []
+    value = agent["startup"]
+    if (not isinstance(value, list) or not 0 < len(value) <= STARTUP_LIMIT
+            or any(not isinstance(name, str) or not _MODULE.fullmatch(name) for name in value)
+            or len(set(value)) != len(value)):
+        raise ValueError(f"agent.startup must list 1-{STARTUP_LIMIT} unique dotted module names")
+    return list(value)
+
+
 def validate(doc: dict, root: pathlib.Path, env: str | None = None):
     """Return (errors, warnings). Errors block; warnings inform."""
     errors: list[str] = []
@@ -217,8 +239,13 @@ def validate(doc: dict, root: pathlib.Path, env: str | None = None):
             errors.append("Host project needs version: 1 and a lower_snake_case agent.name")
         if not re.fullmatch(r"[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*:[A-Za-z_]\w*", str(agent["factory"])):
             errors.append("agent.factory must be module:callable")
-        if set(agent) - {"name", "factory"}:
+        if set(agent) - {"name", "factory", "startup"}:
             errors.append("Host factory owns its model, instructions and callbacks; configure them in Python")
+        if "startup" in agent:
+            try:
+                startup_modules(doc)
+            except ValueError as exc:
+                errors.append(str(exc))
         if set(doc) - {"version", "agent", "authoring"}:
             errors.append("Host factory owns runtime configuration; the descriptor accepts version, agent and authoring")
         authoring = doc.get("authoring", {})

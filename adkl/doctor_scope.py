@@ -21,7 +21,8 @@ SCANNER_FILES = (
     "features.py", "capabilities.py", "doctor_evidence.py", "verification.py",
     "evaluation.py", "contract_probes.py", "request_costs.py", "doctor_tools.py",
     "instruction_audit.py", "doctor_instructions.py", "doctor_variants.py",
-    "construction_log.py",
+    "construction_log.py", "doctor_host.py", "doctor_calls.py",
+    "doctor_environment.py", "host.py", "agent_schema.py", "worker.py",
 )
 
 

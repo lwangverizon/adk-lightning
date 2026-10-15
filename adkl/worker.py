@@ -49,7 +49,9 @@ def main():
                 streaming = operation == "stream"
                 if operation == "inspect":
                     if hasattr(session, "inspect"):
-                        result = session.inspect()
+                        result = (session.inspect(startup_failure="report")
+                                  if request.get("startupFailure") == "report"
+                                  else session.inspect())
                     else:
                         session._build()
                         result = {"source": "adkl_factory", "agent": describe_agent(session.agent),
@@ -85,7 +87,11 @@ def main():
                     result = {"workerError": "Unknown worker operation"}
             except Exception as exc:
                 # Arbitrary project exception text may contain credentials.
-                result = {"workerError": f"Worker {type(exc).__name__}; verify project dependencies and configuration"}
+                # StartupImportError text holds only descriptor names (adkl.host).
+                startup = (type(exc).__module__, type(exc).__name__) == ("adkl.host", "StartupImportError")
+                result = {"workerError": (
+                    f"{exc}; reproduce the serving import order locally" if startup else
+                    f"Worker {type(exc).__name__}; verify project dependencies and configuration")}
             if streaming:
                 write({"version": 1, "type": "error", "error": result["workerError"]})
             else:
