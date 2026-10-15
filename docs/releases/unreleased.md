@@ -43,6 +43,8 @@ host evaluations or a new release certification. Dated reports remain historical
 ## Community preparation
 
 - Fix execution-trace expansion to paint on its own Material surface.
+- Static portal rail navigation follows the editor: the search query and per-collection
+  selections persist across tabs instead of clearing while the old query stayed visible.
 - Use the maintained native example in the local launcher and document Console setup.
 - New schema templates explicitly use the public Gemini provider. Omitted provider
   keeps the legacy gateway default to avoid silently rerouting existing agents;

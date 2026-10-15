@@ -545,6 +545,65 @@ void main() {
       expect(find.text('b-skill'), findsNothing);
     },
   );
+  testWidgets('rail query and selections survive tabs, as in the editor', (
+    t,
+  ) async {
+    t.view.physicalSize = const Size(1440, 1000);
+    t.view.devicePixelRatio = 1;
+    addTearDown(t.view.resetPhysicalSize);
+    addTearDown(t.view.resetDevicePixelRatio);
+    final api = FixtureApi();
+    api.slow.complete(snapshot('a'));
+    await t.pumpWidget(
+      MaterialApp(
+        theme: AdklTheme.light(),
+        home: PortalShell(api: api),
+      ),
+    );
+    await t.pumpAndSettle();
+    final search = find.descendant(
+      of: find.byType(NavRail),
+      matching: find.byType(TextField),
+    );
+    Future<void> tab(String name) async {
+      await t.tap(
+        find.descendant(of: find.byType(NavRail), matching: find.text(name)),
+      );
+      await t.pumpAndSettle();
+    }
+
+    // The displayed query is the applied query on every tab.
+    await t.enterText(search, 'disc');
+    await t.pumpAndSettle();
+    expect(find.text('No matching skills'), findsOneWidget);
+    await tab('Workflows');
+    expect(find.text('disc'), findsOneWidget);
+    expect(find.text('discovery'), findsOneWidget);
+    await tab('Tools');
+    expect(find.text('No matching tools'), findsOneWidget);
+    // No tool selected yet: the skill stays in the pane, one click from back.
+    expect(find.byType(SectionEditor), findsOneWidget);
+    expect(find.byType(ToolDetail), findsNothing);
+    await t.enterText(search, '');
+    await t.pumpAndSettle();
+    await t.tap(find.text('lookup').first);
+    await t.pumpAndSettle();
+    expect(find.byType(ToolDetail), findsOneWidget);
+    await tab('Skills');
+    expect(find.byType(SectionEditor), findsOneWidget);
+    expect(find.byType(ToolDetail), findsNothing);
+    await tab('Workflows');
+    expect(find.text('Select a workflow'), findsOneWidget);
+    await t.tap(find.text('discovery').first);
+    await t.pumpAndSettle();
+    expect(find.byType(WorkflowGraphView), findsOneWidget);
+    await tab('Tools');
+    // Opening a workflow clears the tool, as in the editor; the skill remains.
+    expect(find.byType(SectionEditor), findsOneWidget);
+    await tab('Workflows');
+    expect(find.byType(WorkflowGraphView), findsOneWidget);
+    expect(t.takeException(), isNull);
+  });
   test(
     'static transport is GET only and rejects traversal/mutation paths',
     () async {

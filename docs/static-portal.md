@@ -7,7 +7,9 @@ identity and check coverage. Its shell follows the editor console's layout:
 top bar, library rail, read-only skill editor (token estimate, outlined fields,
 tool rows, Sections/Raw), the Checks panel with category cards, and the same
 width budgets with drawer and bottom navigation when narrow. It reuses the
-console's navigation, tool inspector, section view and workflow diagrams. Chat,
+console's navigation, tool inspector, section view and workflow diagrams. As in
+the editor, the rail query and the skill/tool/workflow selections persist across
+tabs, and a selected skill stays in view on Tools until a tool is chosen. Chat,
 project jobs, saving, tool binding and Doctor runs are absent; the local editor
 retains its editing behavior. Tool parameters are read from ADK 2.x
 `parameters_json_schema`, falling back to `parameters`. It does not run Python, import host code, resolve

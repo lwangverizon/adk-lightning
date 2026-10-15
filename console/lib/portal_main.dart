@@ -79,7 +79,7 @@ class _PortalShellState extends State<PortalShell> {
   late final api = widget.api ?? PortalApi();
   final scaffold = GlobalKey<ScaffoldState>();
   List<Map<String, dynamic>> agents = [];
-  Map<String, dynamic>? bundle, selectedRow;
+  Map<String, dynamic>? bundle, skillRow, toolRow, workflowRow;
   String? selected, error, servedBuild;
   bool recovered = false;
   bool loading = true, raw = false, attention = false;
@@ -89,6 +89,13 @@ class _PortalShellState extends State<PortalShell> {
   double supportWidth = 360;
   int generation = 0, tab = 0;
   String query = '';
+
+  /// The editor console's selection model: one selection per collection,
+  /// kept across rail tabs. A selected tool takes the pane on the Tools tab;
+  /// the skill stays selected underneath, so going back is one click.
+  int get view => tab == 1 && toolRow == null ? 0 : tab;
+  Map<String, dynamic>? get selectedRow =>
+      [skillRow, toolRow, workflowRow][view];
 
   Map<String, dynamic> get inventory => bundle!['inventory'];
   Map<String, dynamic> get report => bundle!['report'];
@@ -176,7 +183,7 @@ class _PortalShellState extends State<PortalShell> {
     setState(() {
       loading = true;
       bundle = null;
-      selectedRow = null;
+      skillRow = toolRow = workflowRow = null;
       error = null;
       agents = [];
       selected = null;
@@ -242,7 +249,7 @@ class _PortalShellState extends State<PortalShell> {
     setState(() {
       selected = id;
       bundle = null;
-      selectedRow = null;
+      skillRow = toolRow = workflowRow = null;
       error = null;
       tab = 0;
       query = '';
@@ -273,9 +280,15 @@ class _PortalShellState extends State<PortalShell> {
         setState(() {
           bundle = value;
           loading = false;
+          // Same opening selection as the editor: first skill, else workflow.
           final rows = collection('skills');
-          selectedRow = rows.isEmpty ? null : rows.first;
-          raw = _structured(selectedRow) == null;
+          final flows = collection('workflows');
+          skillRow = rows.isEmpty ? null : rows.first;
+          workflowRow = skillRow == null && flows.isNotEmpty
+              ? flows.first
+              : null;
+          if (workflowRow != null) tab = 2;
+          raw = _structured(skillRow) == null;
         });
       }
     } on SnapshotMissing {
@@ -308,9 +321,18 @@ class _PortalShellState extends State<PortalShell> {
   void open(int kind, Map<String, dynamic> row) {
     setState(() {
       tab = kind;
-      selectedRow = row;
-      // Same default as the original editor: Sections unless unparsed.
-      raw = kind == 0 && _structured(row) == null;
+      if (kind == 0) {
+        skillRow = row;
+        toolRow = workflowRow = null;
+        // Same default as the original editor: Sections unless unparsed.
+        raw = _structured(row) == null;
+      } else if (kind == 1) {
+        toolRow = row;
+        workflowRow = null;
+      } else {
+        workflowRow = row;
+        toolRow = null;
+      }
       supportVisible = false;
     });
     scaffold.currentState?.closeDrawer();
@@ -353,18 +375,13 @@ class _PortalShellState extends State<PortalShell> {
     tools: collection('tools').map(tool).toList(),
     workflows: workflows,
     tab: tab,
-    onTab: (value) => setState(() {
-      tab = value;
-      selectedRow = null;
-      query = '';
-    }),
-    selectedSkill: tab == 0 && selectedRow != null
-        ? selectedRow!['name']
-        : null,
-    selectedTool: tab == 1 && selectedRow != null ? selectedRow!['name'] : null,
-    selectedWorkflow: tab == 2 && selectedRow != null
-        ? '${selectedRow!['agent']}:${selectedRow!['name']}'
-        : null,
+    // As in the editor: the query and every selection survive tab switches.
+    onTab: (value) => setState(() => tab = value),
+    selectedSkill: skillRow?['name'],
+    selectedTool: toolRow?['name'],
+    selectedWorkflow: workflowRow == null
+        ? null
+        : '${workflowRow!['agent']}:${workflowRow!['name']}',
     onSkill: (name) => openNamed(0, name),
     onTool: (name) => openNamed(1, name),
     onWorkflow: (name) => openNamed(2, name),
@@ -790,14 +807,14 @@ class _PortalShellState extends State<PortalShell> {
     if (selectedRow == null) {
       return Center(
         child: Text(
-          'Select a ${['skill', 'tool', 'workflow'][tab]}',
+          'Select a ${['skill', 'tool', 'workflow'][view]}',
           style: TextStyle(fontSize: 13, color: cs.onSurfaceVariant),
         ),
       );
     }
     final row = selectedRow!;
     final Widget child;
-    if (tab == 1) {
+    if (view == 1) {
       child = ToolDetail(
         tool: tool(row),
         skills: skills.where((s) => s.path == row['owner']).toList(),
@@ -808,7 +825,7 @@ class _PortalShellState extends State<PortalShell> {
           open(0, match);
         },
       );
-    } else if (tab == 2) {
+    } else if (view == 2) {
       child = _workflowDetail(cs, row);
     } else {
       child = _skill(cs, row);
@@ -1174,7 +1191,7 @@ class _PortalShellState extends State<PortalShell> {
   }
 
   String? get _selectedName =>
-      tab == 2 || selectedRow == null ? null : selectedRow!['name'] as String;
+      view == 2 || selectedRow == null ? null : selectedRow!['name'] as String;
 
   Widget _sidePanel(ColorScheme cs) {
     if (bundle == null) return const SizedBox.shrink();
@@ -1184,7 +1201,7 @@ class _PortalShellState extends State<PortalShell> {
         .where(
           (f) =>
               findingsAll ||
-              (name != null && f.skill == name && f.targetsTool == (tab == 1)),
+              (name != null && f.skill == name && f.targetsTool == (view == 1)),
         )
         .toList();
     final checks = (report['checks'] as List).cast<Map<String, dynamic>>();
@@ -1195,7 +1212,7 @@ class _PortalShellState extends State<PortalShell> {
     final freshness = report['freshness'] ?? 'unknown';
     final selectedLabel = name == null
         ? 'item: none'
-        : '${tab == 1 ? 'tool' : 'skill'}: $name';
+        : '${view == 1 ? 'tool' : 'skill'}: $name';
     final grouped = <String, List<Finding>>{};
     for (final f in visible) {
       grouped.putIfAbsent(f.category, () => []).add(f);
